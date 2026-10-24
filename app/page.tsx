@@ -68,15 +68,19 @@ export default function Home() {
     try {
       setStatus("Requesting Microphone...");
       
-      // 1. FORCE ASK FOR MICROPHONE FIRST
+      // 1. Ask for Microphone permission first
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Stop the stream immediately, we just needed to unlock the permission
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach(track => track.stop()); // Release it immediately so the AI can use it
 
+      setStatus("Loading AI Engine...");
+      
+      // 2. DYNAMICALLY LOAD TENSORFLOW ENGINE (Fixes the "No backend" error)
+      const tf = await import("@tensorflow/tfjs");
+      await tf.ready(); // Wait for the engine to fully start
+      
       setStatus("Loading AI Model...");
       
-      // 2. LOAD THE AI
+      // 3. Load the Speech Commands model
       const speechCommands = await import("@tensorflow-models/speech-commands");
       const recognizer = speechCommands.create("BROWSER_FFT");
       await recognizer.ensureModelLoaded();
@@ -85,7 +89,7 @@ export default function Home() {
       setStatus("AI is listening for danger...");
       setIsAIListening(true);
 
-      // 3. START LISTENING
+      // 4. Start listening
       recognizer.listen(
         async (result: any) => {
           const scores = await result.scores;
@@ -114,9 +118,9 @@ export default function Home() {
           overlapFactor: 0.50
         }
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("AI failed: " + error);
+      alert("AI failed: " + (error.message || error));
       setIsAIListening(false);
       setStatus("AI Error");
     }
