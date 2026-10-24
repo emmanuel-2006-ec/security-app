@@ -68,19 +68,16 @@ export default function Home() {
     try {
       setStatus("Requesting Microphone...");
       
-      // 1. Ask for Microphone permission first
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Release it immediately so the AI can use it
+      stream.getTracks().forEach(track => track.stop());
 
       setStatus("Loading AI Engine...");
       
-      // 2. DYNAMICALLY LOAD TENSORFLOW ENGINE (Fixes the "No backend" error)
       const tf = await import("@tensorflow/tfjs");
-      await tf.ready(); // Wait for the engine to fully start
+      await tf.ready(); 
       
       setStatus("Loading AI Model...");
       
-      // 3. Load the Speech Commands model
       const speechCommands = await import("@tensorflow-models/speech-commands");
       const recognizer = speechCommands.create("BROWSER_FFT");
       await recognizer.ensureModelLoaded();
@@ -89,7 +86,6 @@ export default function Home() {
       setStatus("AI is listening for danger...");
       setIsAIListening(true);
 
-      // 4. Start listening
       recognizer.listen(
         async (result: any) => {
           const scores = await result.scores;
@@ -97,7 +93,8 @@ export default function Home() {
           const maxIndex = scores.indexOf(maxScore);
           const detectedWord = recognizer.wordLabels()[maxIndex];
 
-          if (maxScore > 0.85 && (detectedWord === "noise" || detectedWord === "speech")) {
+          // Sensitivity lowered to 0.65 to catch loud claps and sudden noises
+          if (maxScore > 0.65 && (detectedWord === "noise" || detectedWord === "speech" || detectedWord === "_unknown_")) {
              if (status !== "🚨 AI DETECTED DANGER 🚨") {
                 setStatus("🚨 AI DETECTED DANGER 🚨");
                 
@@ -113,7 +110,7 @@ export default function Home() {
         },
         {
           includeSpectrogram: true,
-          probabilityThreshold: 0.75,
+          probabilityThreshold: 0.65, // Lowered for claps/noise
           invokeCallbackOnNoiseAndUnknown: true,
           overlapFactor: 0.50
         }
