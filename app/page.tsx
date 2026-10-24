@@ -11,7 +11,6 @@ const supabase = createClient(
 export default function Home() {
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [status, setStatus] = useState("Waiting for alerts...");
-  const [audioPlayer, setAudioPlayer] = useState<HTMLAudioElement | null>(null);
   
   // Login State
   const [currentUser, setCurrentUser] = useState<{name: string, address: string} | null>(null);
@@ -19,17 +18,13 @@ export default function Home() {
   const [addressInput, setAddressInput] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Check if user is already logged in (saved in phone's browser)
   useEffect(() => {
     const savedUser = localStorage.getItem("securityUser");
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
     }
-    const player = new Audio();
-    setAudioPlayer(player);
   }, []);
 
-  // Handle Login
   const handleLogin = async () => {
     if (!nameInput || !addressInput) {
       alert("Please enter both your name and address.");
@@ -37,48 +32,32 @@ export default function Home() {
     }
     setIsLoggingIn(true);
     
-    // Save to Supabase
-    const { error } = await supabase.from("users").insert([
+    await supabase.from("users").insert([
       { name: nameInput, address: addressInput }
     ]);
 
-    if (error) {
-      console.error(error);
-      alert("Error saving to database, but we will log you in locally.");
-    }
-
-    // Save locally so they don't have to type it again
     const user = { name: nameInput, address: addressInput };
     localStorage.setItem("securityUser", JSON.stringify(user));
     setCurrentUser(user);
     setIsLoggingIn(false);
   };
 
-  // Unlock Audio
   const unlockAudio = () => {
-    if (!audioPlayer) return;
-    
-    audioPlayer.src = "/sounds/thieve.mp3";
-    
-    audioPlayer.play()
-      .then(() => {
-        audioPlayer.pause();
-        audioPlayer.currentTime = 0;
-        setIsAudioReady(true);
-        setStatus("System Armed & Listening");
-      })
-      .catch((err) => {
-        console.error("Unlock failed:", err);
-        alert("Make sure your sound file 'thieve.mp3' is in the public/sounds folder.");
-      });
+    const audio = new Audio("/sounds/thieve.mp3");
+    audio.play().then(() => {
+      audio.pause();
+      setIsAudioReady(true);
+      setStatus("System Armed & Listening");
+    }).catch((err) => {
+      alert("Make sure your sound file 'thieve.mp3' is in the public/sounds folder.");
+    });
   };
 
-  // Text-to-Speech Voice Function
+  // The Deep Bass Voice Function
   const speakVoiceAlert = (alertType: string, senderName: string) => {
     if (!("speechSynthesis" in window)) return;
 
-    // Cancel any currently speaking voice
-    window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel(); // Stop any previous voice
 
     let text = "";
     if (alertType === "thieve") {
@@ -91,22 +70,19 @@ export default function Home() {
 
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Try to find a deep male voice
+    // Force a deep male voice if available
     const voices = window.speechSynthesis.getVoices();
     const maleVoice = voices.find(v => v.name.includes("Male") || v.name.includes("David") || v.name.includes("Google UK English Male"));
+    if (maleVoice) utterance.voice = maleVoice;
     
-    if (maleVoice) {
-      utterance.voice = maleVoice;
-    }
-    
-    utterance.pitch = 0.5; // Lower pitch for a deep voice
-    utterance.rate = 1.1; // Slightly faster for urgency
+    // Voice Settings for "Deep Bass Wailing"
+    utterance.pitch = 0.1; // Lowest pitch (0 is min, 2 is max)
+    utterance.rate = 0.85; // Slower speaking for dramatic wailing effect
     utterance.volume = 1; // Max volume
 
     window.speechSynthesis.speak(utterance);
   };
 
-  // Listen for real-time alerts
   useEffect(() => {
     if (!isAudioReady || !currentUser) return;
 
@@ -119,21 +95,24 @@ export default function Home() {
           const alertType = payload.new.alert_type;
           const senderName = payload.new.sender_name;
           
-          // Play Sound File
+          // Play the MP3 siren
           let soundFile = "/sounds/thieve.mp3"; 
           if (alertType === "beast") soundFile = "/sounds/beast.mp3";
           if (alertType === "fire") soundFile = "/sounds/fire.mp3";
 
-          if (audioPlayer) {
-            audioPlayer.src = soundFile;
-            audioPlayer.play().catch(e => console.error("Play failed:", e));
-          }
+          const siren = new Audio(soundFile);
+          siren.play().catch(e => console.error("Play failed:", e));
 
-          // Play AI Voice
-          speakVoiceAlert(alertType, senderName);
+          // DELAY THE VOICE by 2.5 seconds
+          // This lets the siren ring loud and clear before the voice cuts in
+          setTimeout(() => {
+             speakVoiceAlert(alertType, senderName);
+          }, 2500);
           
           setStatus(`🚨 ALERT: ${alertType.toUpperCase()} 🚨`);
-          setTimeout(() => setStatus("System Armed & Listening"), 10000);
+          
+          // Reset status after 12 seconds (enough time for the voice to finish)
+          setTimeout(() => setStatus("System Armed & Listening"), 12000);
         }
       )
       .subscribe();
@@ -141,21 +120,18 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAudioReady, audioPlayer, currentUser]);
+  }, [isAudioReady, currentUser]);
 
-  // Send an alert
   const sendAlert = async (type: string) => {
     if (!isAudioReady || !currentUser) {
       alert("Please wait for the system to arm!");
       return;
     }
-    
     await supabase.from("alerts").insert([
       { alert_type: type, sender_name: currentUser.name },
     ]);
   };
 
-  // Render Login Screen if not logged in
   if (!currentUser) {
     return (
       <main className="app-container" style={{ justifyContent: "flex-start", paddingTop: "100px" }}>
@@ -166,14 +142,14 @@ export default function Home() {
             placeholder="Your Name (e.g., John)" 
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
-            style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px" }}
+            style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }}
           />
           <input 
             type="text" 
-            placeholder="Physical Address (e.g., Area 47, Sector 3)" 
+            placeholder="Physical Address (e.g., Area 47)" 
             value={addressInput}
             onChange={(e) => setAddressInput(e.target.value)}
-            style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px" }}
+            style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }}
           />
           <button 
             onClick={handleLogin} 
@@ -188,13 +164,11 @@ export default function Home() {
     );
   }
 
-  // Render Main App if logged in
   return (
     <main className="app-container">
       <video autoPlay muted loop playsInline className="bg-video">
         <source src="/videos/background.mp4" type="video/mp4" />
       </video>
-      
       <div className="overlay"></div>
 
       <h1 className="title">Welcome, {currentUser.name}</h1>
