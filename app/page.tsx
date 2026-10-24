@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -17,6 +17,10 @@ export default function Home() {
   const [nameInput, setNameInput] = useState("");
   const [addressInput, setAddressInput] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // AI Listening State
+  const [isAIListening, setIsAIListening] = useState(false);
+  const recognizerRef = useRef<any>(null);
 
   useEffect(() => {
     const savedUser = localStorage.getItem("securityUser");
@@ -53,32 +57,92 @@ export default function Home() {
     });
   };
 
-  // The Deep Bass Voice Function
-  const speakVoiceAlert = (alertType: string, senderName: string) => {
-    if (!("speechSynthesis" in window)) return;
-
-    window.speechSynthesis.cancel(); // Stop any previous voice
-
-    let text = "";
-    if (alertType === "thieve") {
-      text = `Come! Come! Here at ${senderName}'s house there are thieves!!!! Thieves thieves thiiiiiiiiiieves!`;
-    } else if (alertType === "beast") {
-      text = `Emergency! A dangerous beast is attacking at ${senderName}'s house! Please come immediately!`;
-    } else if (alertType === "fire") {
-      text = `Fire! Fire! There is a fire at ${senderName}'s house! Bring water! Fire!`;
+  // AI Sound Recognition Logic
+  const toggleAIListening = async () => {
+    if (isAIListening) {
+      // Stop Listening
+      if (recognizerRef.current) {
+        recognizerRef.current.stopListening();
+      }
+      setIsAIListening(false);
+      setStatus("AI Listening Stopped");
+      return;
     }
 
+    try {
+      setStatus("Loading AI Model...");
+      // Dynamically import the AI library so it doesn't break the initial load
+      const speechCommands = await import("@tensorflow-models/speech-commands");
+      
+      // Load the model (transfers weights from the web)
+      const recognizer = speechCommands.create("BROWSER_FFT");
+      await recognizer.ensureModelLoaded();
+      recognizerRef.current = recognizer;
+
+      setStatus("AI is listening for danger...");
+      setIsAIListening(true);
+
+      // Start listening to the microphone
+      recognizer.listen(
+        async (result: any) => {
+          // Get the highest probability sound
+          const scores = await result.scores;
+          const maxScore = Math.max(...scores);
+          const maxIndex = scores.indexOf(maxScore);
+          const detectedWord = recognizer.wordLabels()[maxIndex];
+
+          // If the AI hears a loud sound (noise, scream, etc.) above 85% confidence
+          // (Note: BROWSER_FFT model detects background noise and speech)
+          if (maxScore > 0.85 && (detectedWord === "noise" || detectedWord === "speech")) {
+             
+             // To prevent spamming the server, we add a cooldown
+             if (status !== "🚨 AI DETECTED DANGER 🚨") {
+                setStatus("🚨 AI DETECTED DANGER 🚨");
+                
+                // Automatically trigger the THIEVE alert!
+                await supabase.from("alerts").insert([
+                  { alert_type: "thieve", sender_name: `${currentUser?.name} (AI Auto-Detect)` },
+                ]);
+
+                // Reset status after 10 seconds
+                setTimeout(() => {
+                    if (isAIListening) setStatus("AI is listening for danger...");
+                }, 10000);
+             }
+          }
+        },
+        {
+          includeSpectrogram: true,
+          probabilityThreshold: 0.75,
+          invokeCallbackOnNoiseAndUnknown: true,
+          overlapFactor: 0.50
+        }
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Microphone access denied or AI failed to load.");
+      setIsAIListening(false);
+      setStatus("AI Error");
+    }
+  };
+
+  const speakVoiceAlert = (alertType: string, senderName: string) => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel(); 
+
+    let text = "";
+    if (alertType === "thieve") text = `Come! Come! Here at ${senderName}'s house there are thieves!!!!`;
+    else if (alertType === "beast") text = `Emergency! A dangerous beast is attacking at ${senderName}'s house!`;
+    else if (alertType === "fire") text = `Fire! Fire! There is a fire at ${senderName}'s house!`;
+
     const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Force a deep male voice if available
     const voices = window.speechSynthesis.getVoices();
-    const maleVoice = voices.find(v => v.name.includes("Male") || v.name.includes("David") || v.name.includes("Google UK English Male"));
+    const maleVoice = voices.find(v => v.name.includes("Male") || v.name.includes("David"));
     if (maleVoice) utterance.voice = maleVoice;
     
-    // Voice Settings for "Deep Bass Wailing"
-    utterance.pitch = 0.1; // Lowest pitch (0 is min, 2 is max)
-    utterance.rate = 0.85; // Slower speaking for dramatic wailing effect
-    utterance.volume = 1; // Max volume
+    utterance.pitch = 0.1; 
+    utterance.rate = 0.85; 
+    utterance.volume = 1; 
 
     window.speechSynthesis.speak(utterance);
   };
@@ -95,7 +159,6 @@ export default function Home() {
           const alertType = payload.new.alert_type;
           const senderName = payload.new.sender_name;
           
-          // Play the MP3 siren
           let soundFile = "/sounds/thieve.mp3"; 
           if (alertType === "beast") soundFile = "/sounds/beast.mp3";
           if (alertType === "fire") soundFile = "/sounds/fire.mp3";
@@ -103,15 +166,11 @@ export default function Home() {
           const siren = new Audio(soundFile);
           siren.play().catch(e => console.error("Play failed:", e));
 
-          // DELAY THE VOICE by 2.5 seconds
-          // This lets the siren ring loud and clear before the voice cuts in
           setTimeout(() => {
              speakVoiceAlert(alertType, senderName);
           }, 2500);
           
           setStatus(`🚨 ALERT: ${alertType.toUpperCase()} 🚨`);
-          
-          // Reset status after 12 seconds (enough time for the voice to finish)
           setTimeout(() => setStatus("System Armed & Listening"), 12000);
         }
       )
@@ -123,10 +182,7 @@ export default function Home() {
   }, [isAudioReady, currentUser]);
 
   const sendAlert = async (type: string) => {
-    if (!isAudioReady || !currentUser) {
-      alert("Please wait for the system to arm!");
-      return;
-    }
+    if (!isAudioReady || !currentUser) return;
     await supabase.from("alerts").insert([
       { alert_type: type, sender_name: currentUser.name },
     ]);
@@ -137,26 +193,9 @@ export default function Home() {
       <main className="app-container" style={{ justifyContent: "flex-start", paddingTop: "100px" }}>
         <h1 className="title" style={{ marginBottom: "40px" }}>Create Account</h1>
         <div style={{ width: "100%", maxWidth: "400px", display: "flex", flexDirection: "column", gap: "15px" }}>
-          <input 
-            type="text" 
-            placeholder="Your Name (e.g., John)" 
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }}
-          />
-          <input 
-            type="text" 
-            placeholder="Physical Address (e.g., Area 47)" 
-            value={addressInput}
-            onChange={(e) => setAddressInput(e.target.value)}
-            style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }}
-          />
-          <button 
-            onClick={handleLogin} 
-            disabled={isLoggingIn}
-            className="enable-btn" 
-            style={{ marginTop: "10px" }}
-          >
+          <input type="text" placeholder="Your Name" value={nameInput} onChange={(e) => setNameInput(e.target.value)} style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }} />
+          <input type="text" placeholder="Physical Address" value={addressInput} onChange={(e) => setAddressInput(e.target.value)} style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }} />
+          <button onClick={handleLogin} disabled={isLoggingIn} className="enable-btn" style={{ marginTop: "10px" }}>
             {isLoggingIn ? "Saving..." : "Save & Continue"}
           </button>
         </div>
@@ -175,7 +214,7 @@ export default function Home() {
       <p style={{ color: "#9ca3af", marginBottom: "20px" }}>{currentUser.address}</p>
       
       <div className="status-pill">
-        <p className={status.includes("ALERT") ? "status-alert" : "status-ready"}>
+        <p className={status.includes("ALERT") || status.includes("DANGER") ? "status-alert" : "status-ready"}>
           {status}
         </p>
       </div>
@@ -185,16 +224,32 @@ export default function Home() {
           🛡️ Tap to Enable Alerts
         </button>
       ) : (
-        <div className="alert-grid">
-          <button onClick={() => sendAlert("thieve")} className="alert-btn btn-thieve">
-            🚨 THIEVE
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%", maxWidth: "400px" }}>
+          <div className="alert-grid">
+            <button onClick={() => sendAlert("thieve")} className="alert-btn btn-thieve">🚨 THIEVE</button>
+            <button onClick={() => sendAlert("beast")} className="alert-btn btn-beast">🐾 BEAST</button>
+            <button onClick={() => sendAlert("fire")} className="alert-btn btn-fire">🔥 FIRE</button>
+          </div>
+          
+          {/* The AI Toggle Button */}
+          <button 
+            onClick={toggleAIListening} 
+            style={{ 
+              marginTop: "20px", 
+              padding: "15px", 
+              borderRadius: "10px", 
+              backgroundColor: isAIListening ? "#ef4444" : "#3b82f6", 
+              color: "white", 
+              fontWeight: "bold",
+              border: "none",
+              cursor: "pointer"
+            }}
+          >
+            {isAIListening ? "🔴 STOP AI LISTENING" : "🤖 Turn On AI Sound Detection"}
           </button>
-          <button onClick={() => sendAlert("beast")} className="alert-btn btn-beast">
-            🐾 BEAST
-          </button>
-          <button onClick={() => sendAlert("fire")} className="alert-btn btn-fire">
-            🔥 FIRE
-          </button>
+          <p style={{ fontSize: "12px", color: "#9ca3af", textAlign: "center" }}>
+            Note: AI listening only works while the app is open on the screen.
+          </p>
         </div>
       )}
     </main>
