@@ -12,13 +12,11 @@ export default function Home() {
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [status, setStatus] = useState("Waiting for alerts...");
   
-  // Login State
   const [currentUser, setCurrentUser] = useState<{name: string, address: string} | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [addressInput, setAddressInput] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // AI Listening State
   const [isAIListening, setIsAIListening] = useState(false);
   const recognizerRef = useRef<any>(null);
 
@@ -57,10 +55,8 @@ export default function Home() {
     });
   };
 
-  // AI Sound Recognition Logic
   const toggleAIListening = async () => {
     if (isAIListening) {
-      // Stop Listening
       if (recognizerRef.current) {
         recognizerRef.current.stopListening();
       }
@@ -70,11 +66,18 @@ export default function Home() {
     }
 
     try {
-      setStatus("Loading AI Model...");
-      // Dynamically import the AI library so it doesn't break the initial load
-      const speechCommands = await import("@tensorflow-models/speech-commands");
+      setStatus("Requesting Microphone...");
       
-      // Load the model (transfers weights from the web)
+      // 1. FORCE ASK FOR MICROPHONE FIRST
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Stop the stream immediately, we just needed to unlock the permission
+      stream.getTracks().forEach(track => track.stop());
+
+      setStatus("Loading AI Model...");
+      
+      // 2. LOAD THE AI
+      const speechCommands = await import("@tensorflow-models/speech-commands");
       const recognizer = speechCommands.create("BROWSER_FFT");
       await recognizer.ensureModelLoaded();
       recognizerRef.current = recognizer;
@@ -82,28 +85,22 @@ export default function Home() {
       setStatus("AI is listening for danger...");
       setIsAIListening(true);
 
-      // Start listening to the microphone
+      // 3. START LISTENING
       recognizer.listen(
         async (result: any) => {
-          // Get the highest probability sound
           const scores = await result.scores;
           const maxScore = Math.max(...scores);
           const maxIndex = scores.indexOf(maxScore);
           const detectedWord = recognizer.wordLabels()[maxIndex];
 
-          // If the AI hears a loud sound (noise, scream, etc.) above 85% confidence
           if (maxScore > 0.85 && (detectedWord === "noise" || detectedWord === "speech")) {
-             
-             // To prevent spamming the server, we add a cooldown
              if (status !== "🚨 AI DETECTED DANGER 🚨") {
                 setStatus("🚨 AI DETECTED DANGER 🚨");
                 
-                // Automatically trigger the THIEVE alert!
                 await supabase.from("alerts").insert([
                   { alert_type: "thieve", sender_name: `${currentUser?.name} (AI Auto-Detect)` },
                 ]);
 
-                // Reset status after 10 seconds
                 setTimeout(() => {
                     if (isAIListening) setStatus("AI is listening for danger...");
                 }, 10000);
@@ -119,7 +116,7 @@ export default function Home() {
       );
     } catch (error) {
       console.error(error);
-      alert("Microphone access denied or AI failed to load.");
+      alert("AI failed: " + error);
       setIsAIListening(false);
       setStatus("AI Error");
     }
@@ -187,21 +184,9 @@ export default function Home() {
     ]);
   };
 
-  // LOGIN SCREEN
   if (!currentUser) {
     return (
-      <main 
-        style={{ 
-          minHeight: "100vh", 
-          display: "flex", 
-          flexDirection: "column", 
-          alignItems: "center", 
-          paddingTop: "100px",
-          paddingLeft: "20px",
-          paddingRight: "20px",
-          overflowY: "auto" 
-        }}
-      >
+      <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "100px", paddingLeft: "20px", paddingRight: "20px", overflowY: "auto" }}>
         <h1 style={{ fontSize: "2.5rem", fontWeight: "800", marginBottom: "40px", textAlign: "center" }}>Create Account</h1>
         <div style={{ width: "100%", maxWidth: "400px", display: "flex", flexDirection: "column", gap: "15px" }}>
           <input type="text" placeholder="Your Name" value={nameInput} onChange={(e) => setNameInput(e.target.value)} style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }} />
@@ -214,21 +199,8 @@ export default function Home() {
     );
   }
 
-  // MAIN APP SCREEN
   return (
-    <main 
-      style={{ 
-        position: "relative", 
-        minHeight: "100vh", 
-        display: "flex", 
-        flexDirection: "column", 
-        alignItems: "center", 
-        justifyContent: "flex-start",
-        padding: "60px 20px 120px 20px", // 120px bottom padding forces scrolling
-        overflowY: "auto", // FORCES THE SCREEN TO SCROLL
-        width: "100%"
-      }}
-    >
+    <main style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", padding: "60px 20px 120px 20px", overflowY: "auto", width: "100%" }}>
       <video autoPlay muted loop playsInline style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", objectFit: "cover", zIndex: -2, opacity: 0.3 }}>
         <source src="/videos/background.mp4" type="video/mp4" />
       </video>
@@ -256,21 +228,9 @@ export default function Home() {
             <button onClick={() => sendAlert("fire")} className="alert-btn btn-fire">🔥 FIRE</button>
           </div>
           
-          {/* The AI Toggle Button */}
           <button 
             onClick={toggleAIListening} 
-            style={{ 
-              marginTop: "20px", 
-              marginBottom: "30px", // Added bottom margin
-              padding: "15px", 
-              borderRadius: "10px", 
-              backgroundColor: isAIListening ? "#ef4444" : "#3b82f6", 
-              color: "white", 
-              fontWeight: "bold",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "16px"
-            }}
+            style={{ marginTop: "20px", marginBottom: "30px", padding: "15px", borderRadius: "10px", backgroundColor: isAIListening ? "#ef4444" : "#3b82f6", color: "white", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "16px" }}
           >
             {isAIListening ? "🔴 STOP AI LISTENING" : "🤖 Turn On AI Sound Detection"}
           </button>
