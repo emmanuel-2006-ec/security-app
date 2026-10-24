@@ -1,9 +1,140 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Import a modern font from Google */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
 
-body {
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
+  font-family: 'Inter', sans-serif;
 }
 
+body {
+  background-color: #111827;
+  color: white;
+  overflow: hidden; /* Stops scrolling */
+}
+
+/* The full-screen container */
+.app-container {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* The Background Video */
+.bg-video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: -2;
+  opacity: 0.3; /* Dims the video so text is readable */
+}
+
+/* The dark overlay over the video */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(17, 24, 39, 0.7);
+  z-index: -1;
+}
+
+/* Header Text */
+.title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Status Pill */
+.status-pill {
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 10px 20px;
+  border-radius: 50px;
+  border: 1px solid #374151;
+  margin-bottom: 40px;
+  font-weight: 600;
+}
+
+.status-ready { color: #4ade80; } /* Green */
+.status-alert { color: #ef4444; animation: pulse 1s infinite; } /* Red */
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* The giant Enable Button */
+.enable-btn {
+  background-color: #eab308;
+  color: #111827;
+  border: none;
+  padding: 20px 30px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  border-radius: 15px;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.5);
+  transition: transform 0.1s;
+}
+
+.enable-btn:active {
+  transform: scale(0.95);
+}
+
+/* The Alert Buttons Grid */
+.alert-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.alert-btn {
+  border: none;
+  border-radius: 20px;
+  padding: 30px;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
+.alert-btn:active {
+  transform: scale(0.95);
+}
+
+/* Specific Button Colors */
+.btn-thieve {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  box-shadow: 0 0 20px rgba(220, 38, 38, 0.4);
+}
+
+.btn-beast {
+  background: linear-gradient(135deg, #ea580c, #9a3412);
+  box-shadow: 0 0 20px rgba(234, 88, 12, 0.4);
+}
+
+.btn-fire {
+  background: linear-gradient(135deg, #ca8a04, #854d0e);
+  box-shadow: 0 0 20px rgba(202, 138, 4, 0.4);
+}
