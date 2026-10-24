@@ -93,8 +93,8 @@ export default function Home() {
           const maxIndex = scores.indexOf(maxScore);
           const detectedWord = recognizer.wordLabels()[maxIndex];
 
-          // Sensitivity lowered to 0.65 to catch loud claps and sudden noises
-          if (maxScore > 0.65 && (detectedWord === "noise" || detectedWord === "speech" || detectedWord === "_unknown_")) {
+          // FIXED: Set to 0.80 and removed "_unknown_" so silence doesn't trigger it
+          if (maxScore > 0.80 && (detectedWord === "noise" || detectedWord === "speech")) {
              if (status !== "🚨 AI DETECTED DANGER 🚨") {
                 setStatus("🚨 AI DETECTED DANGER 🚨");
                 
@@ -110,7 +110,7 @@ export default function Home() {
         },
         {
           includeSpectrogram: true,
-          probabilityThreshold: 0.65, // Lowered for claps/noise
+          probabilityThreshold: 0.80, // Fixed threshold
           invokeCallbackOnNoiseAndUnknown: true,
           overlapFactor: 0.50
         }
