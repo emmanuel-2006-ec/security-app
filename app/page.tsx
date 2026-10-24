@@ -92,7 +92,6 @@ export default function Home() {
           const detectedWord = recognizer.wordLabels()[maxIndex];
 
           // If the AI hears a loud sound (noise, scream, etc.) above 85% confidence
-          // (Note: BROWSER_FFT model detects background noise and speech)
           if (maxScore > 0.85 && (detectedWord === "noise" || detectedWord === "speech")) {
              
              // To prevent spamming the server, we add a cooldown
@@ -188,10 +187,22 @@ export default function Home() {
     ]);
   };
 
+  // LOGIN SCREEN
   if (!currentUser) {
     return (
-      <main className="app-container" style={{ justifyContent: "flex-start", paddingTop: "100px" }}>
-        <h1 className="title" style={{ marginBottom: "40px" }}>Create Account</h1>
+      <main 
+        style={{ 
+          minHeight: "100vh", 
+          display: "flex", 
+          flexDirection: "column", 
+          alignItems: "center", 
+          paddingTop: "100px",
+          paddingLeft: "20px",
+          paddingRight: "20px",
+          overflowY: "auto" 
+        }}
+      >
+        <h1 style={{ fontSize: "2.5rem", fontWeight: "800", marginBottom: "40px", textAlign: "center" }}>Create Account</h1>
         <div style={{ width: "100%", maxWidth: "400px", display: "flex", flexDirection: "column", gap: "15px" }}>
           <input type="text" placeholder="Your Name" value={nameInput} onChange={(e) => setNameInput(e.target.value)} style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }} />
           <input type="text" placeholder="Physical Address" value={addressInput} onChange={(e) => setAddressInput(e.target.value)} style={{ padding: "15px", borderRadius: "10px", border: "none", fontSize: "16px", color: "black" }} />
@@ -203,18 +214,32 @@ export default function Home() {
     );
   }
 
+  // MAIN APP SCREEN
   return (
-    <main className="app-container">
-      <video autoPlay muted loop playsInline className="bg-video">
+    <main 
+      style={{ 
+        position: "relative", 
+        minHeight: "100vh", 
+        display: "flex", 
+        flexDirection: "column", 
+        alignItems: "center", 
+        justifyContent: "flex-start",
+        padding: "60px 20px 120px 20px", // 120px bottom padding forces scrolling
+        overflowY: "auto", // FORCES THE SCREEN TO SCROLL
+        width: "100%"
+      }}
+    >
+      <video autoPlay muted loop playsInline style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", objectFit: "cover", zIndex: -2, opacity: 0.3 }}>
         <source src="/videos/background.mp4" type="video/mp4" />
       </video>
-      <div className="overlay"></div>
+      
+      <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(17, 24, 39, 0.7)", zIndex: -1 }}></div>
 
-      <h1 className="title">Welcome, {currentUser.name}</h1>
+      <h1 style={{ fontSize: "2.5rem", fontWeight: "800", marginBottom: "10px", textAlign: "center" }}>Welcome, {currentUser.name}</h1>
       <p style={{ color: "#9ca3af", marginBottom: "20px" }}>{currentUser.address}</p>
       
-      <div className="status-pill">
-        <p className={status.includes("ALERT") || status.includes("DANGER") ? "status-alert" : "status-ready"}>
+      <div style={{ backgroundColor: "rgba(0, 0, 0, 0.6)", padding: "10px 20px", borderRadius: "50px", border: "1px solid #374151", marginBottom: "40px", fontWeight: "600" }}>
+        <p style={{ color: (status.includes("ALERT") || status.includes("DANGER")) ? "#ef4444" : "#4ade80" }}>
           {status}
         </p>
       </div>
@@ -236,18 +261,21 @@ export default function Home() {
             onClick={toggleAIListening} 
             style={{ 
               marginTop: "20px", 
+              marginBottom: "30px", // Added bottom margin
               padding: "15px", 
               borderRadius: "10px", 
               backgroundColor: isAIListening ? "#ef4444" : "#3b82f6", 
               color: "white", 
               fontWeight: "bold",
               border: "none",
-              cursor: "pointer"
+              cursor: "pointer",
+              fontSize: "16px"
             }}
           >
             {isAIListening ? "🔴 STOP AI LISTENING" : "🤖 Turn On AI Sound Detection"}
           </button>
-          <p style={{ fontSize: "12px", color: "#9ca3af", textAlign: "center" }}>
+          
+          <p style={{ fontSize: "12px", color: "#9ca3af", textAlign: "center", marginBottom: "60px" }}>
             Note: AI listening only works while the app is open on the screen.
           </p>
         </div>
