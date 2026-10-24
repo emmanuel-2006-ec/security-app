@@ -11,7 +11,7 @@
 body {
   background-color: #111827;
   color: white;
-  overflow-y: auto; /* Stops scrolling */
+  overflow-y: auto; /* Allows scrolling */
 }
 
 /* The full-screen container */
@@ -23,29 +23,6 @@ body {
   align-items: center;
   justify-content: center;
   padding: 40px 20px 80px 20px;
-}
-
-/* The Background Video */
-.bg-video {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  object-fit: cover;
-  z-index: -2;
-  opacity: 0.3; /* Dims the video so text is readable */
-}
-
-/* The dark overlay over the video */
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(17, 24, 39, 0.7);
-  z-index: -1;
 }
 
 /* Header Text */
@@ -137,4 +114,50 @@ body {
 .btn-fire {
   background: linear-gradient(135deg, #ca8a04, #854d0e);
   box-shadow: 0 0 20px rgba(202, 138, 4, 0.4);
+}
+
+/* =========================================
+   NEW: ANIMATED ALERT BANNER
+========================================= */
+.alert-banner {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 500px;
+  background-color: #dc2626;
+  color: white;
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+  z-index: 9999;
+  box-shadow: 0 0 30px rgba(220, 38, 38, 0.8);
+  animation: pulse-danger 1.5s infinite, slide-down 0.5s ease-out;
+}
+
+.alert-banner h2 {
+  margin: 0 0 10px 0;
+  font-size: 1.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.alert-banner p {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+@keyframes slide-down {
+  from { top: -100px; opacity: 0; }
+  to { top: 20px; opacity: 1; }
+}
+
+@keyframes pulse-danger {
+  0% { background-color: #dc2626; }
+  50% { background-color: #991b1b; }
+  100% { background-color: #dc2626; }
 }
