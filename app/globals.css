@@ -11,7 +11,7 @@
 body {
   background-color: #111827;
   color: white;
-  overflow: hidden; /* Stops scrolling */
+  overflow-y: auto; /* Stops scrolling */
 }
 
 /* The full-screen container */
