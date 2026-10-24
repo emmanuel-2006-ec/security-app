@@ -13,8 +13,6 @@ const nextConfig = {
         fs: false,
       };
     }
-    // This tells Next.js not to try and bundle TensorFlow for the server
-    config.externals = [...(config.externals || []), '@tensorflow/tfjs', '@tensorflow-models/speech-commands'];
     return config;
   },
 };
