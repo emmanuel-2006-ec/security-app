@@ -20,6 +20,9 @@ export default function Home() {
   const [isAIListening, setIsAIListening] = useState(false);
   const recognizerRef = useRef<any>(null);
 
+  // NEW: State for the incoming alert banner
+  const [incomingAlert, setIncomingAlert] = useState<{type: string, name: string, address: string} | null>(null);
+
   useEffect(() => {
     const savedUser = localStorage.getItem("securityUser");
     if (savedUser) {
@@ -67,17 +70,14 @@ export default function Home() {
 
     try {
       setStatus("Requesting Microphone...");
-      
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
 
       setStatus("Loading AI Engine...");
-      
       const tf = await import("@tensorflow/tfjs");
       await tf.ready(); 
       
       setStatus("Loading AI Model...");
-      
       const speechCommands = await import("@tensorflow-models/speech-commands");
       const recognizer = speechCommands.create("BROWSER_FFT");
       await recognizer.ensureModelLoaded();
@@ -93,13 +93,12 @@ export default function Home() {
           const maxIndex = scores.indexOf(maxScore);
           const detectedWord = recognizer.wordLabels()[maxIndex];
 
-          // FIXED: Set to 0.80 and removed "_unknown_" so silence doesn't trigger it
           if (maxScore > 0.80 && (detectedWord === "noise" || detectedWord === "speech")) {
              if (status !== "🚨 AI DETECTED DANGER 🚨") {
                 setStatus("🚨 AI DETECTED DANGER 🚨");
                 
                 await supabase.from("alerts").insert([
-                  { alert_type: "thieve", sender_name: `${currentUser?.name} (AI Auto-Detect)` },
+                  { alert_type: "thieve", sender_name: `${currentUser?.name} (AI Auto-Detect)`, sender_address: currentUser?.address },
                 ]);
 
                 setTimeout(() => {
@@ -108,12 +107,7 @@ export default function Home() {
              }
           }
         },
-        {
-          includeSpectrogram: true,
-          probabilityThreshold: 0.80, // Fixed threshold
-          invokeCallbackOnNoiseAndUnknown: true,
-          overlapFactor: 0.50
-        }
+        { includeSpectrogram: true, probabilityThreshold: 0.80, invokeCallbackOnNoiseAndUnknown: true, overlapFactor: 0.50 }
       );
     } catch (error: any) {
       console.error(error);
@@ -155,6 +149,7 @@ export default function Home() {
         (payload) => {
           const alertType = payload.new.alert_type;
           const senderName = payload.new.sender_name;
+          const senderAddress = payload.new.sender_address || "Unknown Location";
           
           let soundFile = "/sounds/thieve.mp3"; 
           if (alertType === "beast") soundFile = "/sounds/beast.mp3";
@@ -168,7 +163,15 @@ export default function Home() {
           }, 2500);
           
           setStatus(`🚨 ALERT: ${alertType.toUpperCase()} 🚨`);
-          setTimeout(() => setStatus("System Armed & Listening"), 12000);
+          
+          // SHOW THE ANIMATED BANNER
+          setIncomingAlert({ type: alertType, name: senderName, address: senderAddress });
+
+          // Hide banner and reset status after 12 seconds
+          setTimeout(() => {
+            setStatus("System Armed & Listening");
+            setIncomingAlert(null);
+          }, 12000);
         }
       )
       .subscribe();
@@ -180,8 +183,9 @@ export default function Home() {
 
   const sendAlert = async (type: string) => {
     if (!isAudioReady || !currentUser) return;
+    // Send BOTH name and address to the database
     await supabase.from("alerts").insert([
-      { alert_type: type, sender_name: currentUser.name },
+      { alert_type: type, sender_name: currentUser.name, sender_address: currentUser.address },
     ]);
   };
 
@@ -200,6 +204,14 @@ export default function Home() {
     );
   }
 
+  // Helper to format the alert text
+  const getAlertMessage = (type: string, name: string, address: string) => {
+    if (type === "thieve") return `THIEVES at ${name}'s house located at ${address}. Please help!`;
+    if (type === "beast") return `DANGEROUS BEAST at ${name}'s house located at ${address}. Please help!`;
+    if (type === "fire") return `FIRE ACCIDENT at ${name}'s house located at ${address}. Please help!`;
+    return `EMERGENCY at ${name}'s house located at ${address}. Please help!`;
+  };
+
   return (
     <main style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", padding: "60px 20px 120px 20px", overflowY: "auto", width: "100%" }}>
       <video autoPlay muted loop playsInline style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", objectFit: "cover", zIndex: -2, opacity: 0.3 }}>
@@ -207,6 +219,14 @@ export default function Home() {
       </video>
       
       <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(17, 24, 39, 0.7)", zIndex: -1 }}></div>
+
+      {/* THE ANIMATED ALERT BANNER */}
+      {incomingAlert && (
+        <div className="alert-banner">
+          <h2>{incomingAlert.type} Alert!</h2>
+          <p>{getAlertMessage(incomingAlert.type, incomingAlert.name, incomingAlert.address)}</p>
+        </div>
+      )}
 
       <h1 style={{ fontSize: "2.5rem", fontWeight: "800", marginBottom: "10px", textAlign: "center" }}>Welcome, {currentUser.name}</h1>
       <p style={{ color: "#9ca3af", marginBottom: "20px" }}>{currentUser.address}</p>
@@ -244,4 +264,3 @@ export default function Home() {
     </main>
   );
 }
-
